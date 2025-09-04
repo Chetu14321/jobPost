@@ -32,7 +32,7 @@ export default function JobForm() {
     };
 
     try {
-      const res = await axios.post("http://localhost:5000/api/jobs", jobData);
+      const res = await axios.post("/api/jobs", jobData);
       alert("✅ Job posted successfully!");
       console.log(res.data);
 
