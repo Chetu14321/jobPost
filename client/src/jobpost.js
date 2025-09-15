@@ -13,6 +13,13 @@ export default function JobForm() {
     tags: "",
     applyUrl: "",
     type: "job",
+    // NEW fields
+    role: "",
+    qualification: "",
+    batch: "",
+    experience: "",
+    salary: "",
+    lastDate: "",
   });
 
   const handleChange = (e) => {
@@ -25,7 +32,6 @@ export default function JobForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const jobData = {
       ...formData,
       tags: formData.tags.split(",").map((tag) => tag.trim()),
@@ -36,6 +42,7 @@ export default function JobForm() {
       alert("✅ Job posted successfully!");
       console.log(res.data);
 
+      // Reset form
       setFormData({
         title: "",
         company: "",
@@ -45,6 +52,12 @@ export default function JobForm() {
         tags: "",
         applyUrl: "",
         type: "job",
+        role: "",
+        qualification: "",
+        batch: "",
+        experience: "",
+        salary: "",
+        lastDate: "",
       });
     } catch (err) {
       console.error(err);
@@ -55,10 +68,9 @@ export default function JobForm() {
   return (
     <div className="container mt-5">
       <div className="card shadow-lg p-4 border-0 rounded-4">
-        <h2 className="mb-4 text-center fw-bold text-primary">
-          🚀 Post a Job
-        </h2>
+        <h2 className="mb-4 text-center fw-bold text-primary">🚀 Post a Job</h2>
         <form onSubmit={handleSubmit}>
+
           {/* Job Title */}
           <div className="mb-3">
             <label className="form-label fw-semibold">Job Title</label>
@@ -66,10 +78,89 @@ export default function JobForm() {
               type="text"
               name="title"
               className="form-control"
-              placeholder="e.g. Frontend Developer"
+              placeholder="Frontend Developer"
               value={formData.title}
               onChange={handleChange}
               required
+            />
+          </div>
+
+          {/* Job Role */}
+          <div className="mb-3">
+            <label className="form-label fw-semibold">Job Role</label>
+            <input
+              type="text"
+              name="role"
+              className="form-control"
+              placeholder="Systems Engineer Trainee"
+              value={formData.role}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {/* Qualification */}
+          <div className="mb-3">
+            <label className="form-label fw-semibold">Qualification</label>
+            <input
+              type="text"
+              name="qualification"
+              className="form-control"
+              placeholder="B.E/B.Tech/M.E/M.Tech/M.Sc/MCA"
+              value={formData.qualification}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {/* Batch */}
+          <div className="mb-3">
+            <label className="form-label fw-semibold">Batch</label>
+            <input
+              type="text"
+              name="batch"
+              className="form-control"
+              placeholder="2024 & 2025"
+              value={formData.batch}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* Experience */}
+          <div className="mb-3">
+            <label className="form-label fw-semibold">Experience</label>
+            <input
+              type="text"
+              name="experience"
+              className="form-control"
+              placeholder="Freshers / 1-2 years"
+              value={formData.experience}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* Salary */}
+          <div className="mb-3">
+            <label className="form-label fw-semibold">Salary / CTC</label>
+            <input
+              type="text"
+              name="salary"
+              className="form-control"
+              placeholder="Rs. 3.6 LPA"
+              value={formData.salary}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* Last Date */}
+          <div className="mb-3">
+            <label className="form-label fw-semibold">Last Date</label>
+            <input
+              type="date"
+              name="lastDate"
+              className="form-control"
+              value={formData.lastDate}
+              onChange={handleChange}
             />
           </div>
 
@@ -80,7 +171,7 @@ export default function JobForm() {
               type="text"
               name="company"
               className="form-control"
-              placeholder="e.g. Google"
+              placeholder="Google"
               value={formData.company}
               onChange={handleChange}
               required
@@ -109,7 +200,7 @@ export default function JobForm() {
               type="text"
               name="location"
               className="form-control"
-              placeholder="e.g. Bangalore, India"
+              placeholder="Bangalore, India"
               value={formData.location}
               onChange={handleChange}
               required
@@ -138,13 +229,11 @@ export default function JobForm() {
               type="text"
               name="tags"
               className="form-control"
-              placeholder="e.g. React, Node.js, MongoDB"
+              placeholder="React, Node.js, MongoDB"
               value={formData.tags}
               onChange={handleChange}
             />
-            <small className="text-muted">
-              Enter tags separated by commas
-            </small>
+            <small className="text-muted">Enter tags separated by commas</small>
           </div>
 
           {/* Apply URL */}
@@ -177,7 +266,10 @@ export default function JobForm() {
 
           {/* Submit */}
           <div className="text-center">
-            <button type="submit" className="btn btn-primary px-5 py-2 rounded-3">
+            <button
+              type="submit"
+              className="btn btn-primary px-5 py-2 rounded-3"
+            >
               ✅ Post Job
             </button>
           </div>

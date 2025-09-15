@@ -1,4 +1,4 @@
-// index.js (updated)
+// ================== Imports ==================
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -9,8 +9,13 @@ const pdfParse = require("pdf-parse");
 const { IncomingForm } = require("formidable");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const PDFDocument = require("pdfkit");
+const nodemailer = require("nodemailer");
+const cron = require("node-cron");
 
 dotenv.config();
+console.log("EMAIL_USER:", process.env.MAIL_USER);
+console.log("EMAIL_PASS:", process.env.MAIL_PASS ? "Loaded ✅" : "❌ Missing");
+
 const app = express();
 
 app.use(cors());
@@ -26,9 +31,12 @@ mongoose
   .catch((err) => console.log(err));
 
 // ================== Job Schema ==================
+
+
 const jobSchema = new mongoose.Schema({
-  title: String,
-  company: String,
+  title: { type: String, required: true },
+  company: { type: String, required: true },
+  img: String,
   description: String,
   location: String,
   isWFH: Boolean,
@@ -40,10 +48,47 @@ const jobSchema = new mongoose.Schema({
     default: "job",
   },
   postedAt: { type: Date, default: Date.now },
+
+  // NEW structured fields for table display
+  role: String,             // Job Role
+  qualification: String,    // B.E/B.Tech/M.E/M.Tech/M.Sc/MCA
+  batch: String,            // Eligible batches
+  experience: String,       // e.g., Freshers / 1-2 years
+  salary: String,           // Salary / CTC
+  lastDate: Date,           // Last date to apply
 });
+
 const Job = mongoose.model("Job", jobSchema);
 
+
+// ================== Subscriber Schema ==================
+const subscriberSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  subscribedAt: { type: Date, default: Date.now },
+});
+const Subscriber = mongoose.model("Subscriber", subscriberSchema);
+
+// ================== Email Transporter ==================
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
+  },
+});
+
+// verify transporter
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("❌ SMTP Error:", error);
+  } else {
+    console.log("✅ SMTP Server is ready to send messages");
+  }
+});
+
+
 // ================== API Routes ==================
+// Jobs
 app.get("/api/jobs", async (req, res) => {
   const jobs = await Job.find().sort({ postedAt: -1 });
   res.json(jobs);
@@ -60,6 +105,53 @@ app.get("/api/jobs/:id", async (req, res) => {
   res.json(job);
 });
 
+// Subscribe
+app.post("/api/subscribe", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    // Check if already subscribed
+    const existing = await Subscriber.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ error: "Already subscribed" });
+    }
+
+    // Save subscriber
+    const subscriber = new Subscriber({ email });
+    await subscriber.save();
+
+    // Send confirmation email
+    await transporter.sendMail({
+      // from: `"Freshers Jobs" <${process.env.MAIL_USER}>`,
+      from: `"Freshers Jobs" <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: "🎉 Subscription Confirmed - Freshers Jobs Updates",
+      html: `
+        <h2>Welcome to FreshersJobs.shop 🚀</h2>
+        <p>Hi there 👋,</p>
+        <p>Thanks for subscribing! 🎯</p>
+        <p>You’ll now receive <b>daily job updates</b> (last 24 hours) directly in your inbox.</p>
+        <br/>
+        <p>👉 Stay tuned for the latest <b>Freshers Jobs & Internships</b>.</p>
+        <br/>
+        <p style="font-size:12px;color:gray;">
+          If this wasn’t you, you can ignore this email.
+        </p>
+      `,
+    });
+
+    res.json({ message: "✅ Subscribed successfully! Confirmation email sent." });
+  } catch (err) {
+    console.error("Subscribe error:", err);
+    res.status(500).json({ error: "Failed to subscribe" });
+  }
+});
+
+
+// Resume Checker
 app.post("/api/resume-checker", (req, res) => {
   const form = new IncomingForm({ multiples: false });
 
@@ -108,10 +200,10 @@ app.post("/api/resume-checker", (req, res) => {
       `;
 
       const result = await model.generateContent(prompt);
-      // result.response.text() (your previous usage). keep same approach:
-      const text = result.response && typeof result.response.text === "function"
-        ? result.response.text()
-        : result.response?.text || "";
+      const text =
+        result.response && typeof result.response.text === "function"
+          ? result.response.text()
+          : result.response?.text || "";
 
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       let feedback;
@@ -142,16 +234,14 @@ app.post("/api/resume-checker", (req, res) => {
       res.json(feedback);
     } catch (error) {
       console.error("Resume checker error:", error);
-      console.error("Gemini API Error:", error.message || error);
-      res.status(500).json({ error: "AI request failed", details: error.message });
+      res
+        .status(500)
+        .json({ error: "AI request failed", details: error.message });
     }
   });
 });
 
-// ================== NEW: Chat endpoint (for the floating chatbox) ==================
-// POST /api/chat
-// Body: { message: string, history?: [{ role: "user"|"assistant", content: string }] }
-// Returns: { reply: string }
+// Chat endpoint
 app.post("/api/chat", async (req, res) => {
   try {
     const { message, history } = req.body;
@@ -165,7 +255,6 @@ app.post("/api/chat", async (req, res) => {
       return res.status(500).json({ error: "AI provider not configured" });
     }
 
-    // construct a simple prompt that includes optional history
     let prompt = "";
     if (Array.isArray(history) && history.length) {
       prompt += history
@@ -192,20 +281,67 @@ app.post("/api/chat", async (req, res) => {
     res.json({ reply });
   } catch (error) {
     console.error("Gemini API Error (chat):", error);
-    // send limited details to client; full stack in server logs
-    res.status(500).json({ error: "AI request failed", details: error.message });
+    res
+      .status(500)
+      .json({ error: "AI request failed", details: error.message });
+  }
+});
+
+// ================== Cron Job (Daily Job Emails) ==================
+cron.schedule("25 10 * * *", async () => {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - 1);
+
+    const jobs = await Job.find({ postedAt: { $gte: since } }).sort({
+      postedAt: -1,
+    });
+    if (jobs.length === 0) {
+      console.log("No new jobs in last 24h.");
+      return;
+    }
+
+    const subscribers = await Subscriber.find();
+
+    const jobListHtml = jobs
+      .map(
+        (job) =>
+          `<li><a href="${job.applyUrl}">${job.title} at ${job.company}</a> (${job.location})</li>`
+      )
+      .join("");
+
+    for (let sub of subscribers) {
+      await transporter.sendMail({
+        from: `"Freshers Jobs" <${process.env.MAIL_USER}>`,
+        to: sub.email,
+        subject: "🔥 Daily Freshers Jobs Updates",
+        html: `
+          <h3>Latest Jobs (Last 24 Hours)</h3>
+          <ul>${jobListHtml}</ul>
+          <p>Visit <a href="https://freshersjobs.shop">freshersjobs.shop</a> for more.</p>
+        `,
+      });
+    }
+
+    console.log(`📧 Sent job updates to ${subscribers.length} subscribers`);
+  } catch (err) {
+    console.error("Cron job error:", err);
   }
 });
 
 // ================== Serve React Frontend ==================
-// Serve static files from React build
-app.use(express.static(path.join(__dirname, "client", "build")));
+// app.use(express.static(path.join(__dirname, "client", "build")));
 
-// Fallback route for React (must come after API routes)
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "client", "build", "index.html"));
+// app.get("*", (req, res) => {
+//   res.sendFile(path.join(__dirname, "client", "build", "index.html"));
+// });
+app.get("/", (req, res) => {
+  res.send("✅ FreshersJobs Backend is running...");
 });
+
 
 // ================== Start Server ==================
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+app.listen(PORT, () =>
+  console.log(`🚀 Server running on http://localhost:${PORT}`)
+);
