@@ -105,6 +105,14 @@ app.delete("/api/jobs/:id", async (req, res) => {
   }
 });
 
+
+// ================== Serve React Frontend ==================
+app.use(express.static(path.join(__dirname, "client", "build")));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "client", "build", "index.html"));
+});
+
 // ================== Root ==================
 app.get("/", (req, res) => {
   res.send("✅ FreshersJobs Backend is running...");
