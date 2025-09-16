@@ -1,19 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 
-export default function JobForm() {
+export default function JobManager() {
+  const [jobs, setJobs] = useState([]);
   const [formData, setFormData] = useState({
     title: "",
     company: "",
+    img: "",
     description: "",
     location: "",
     isWFH: false,
     tags: "",
     applyUrl: "",
     type: "job",
-    // NEW fields
     role: "",
     qualification: "",
     batch: "",
@@ -21,7 +22,23 @@ export default function JobForm() {
     salary: "",
     lastDate: "",
   });
+  const [editingJob, setEditingJob] = useState(null);
 
+  // Fetch all jobs
+  const fetchJobs = async () => {
+    try {
+      const res = await axios.get("/api/jobs");
+      setJobs(res.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  // Handle input
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData({
@@ -30,229 +47,168 @@ export default function JobForm() {
     });
   };
 
+  // Submit form (Add / Edit)
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const jobData = {
-      ...formData,
-      tags: formData.tags.split(",").map((tag) => tag.trim()),
-    };
-
     try {
-      const res = await axios.post("/api/jobs", jobData);
-      alert("✅ Job posted successfully!");
-      console.log(res.data);
-
-      // Reset form
-      setFormData({
-        title: "",
-        company: "",
-        description: "",
-        location: "",
-        isWFH: false,
-        tags: "",
-        applyUrl: "",
-        type: "job",
-        role: "",
-        qualification: "",
-        batch: "",
-        experience: "",
-        salary: "",
-        lastDate: "",
-      });
-    } catch (err) {
-      console.error(err);
-      alert("❌ Failed to post job");
+      if (editingJob) {
+        // Update
+        await axios.put(`/api/jobs/${editingJob._id}`, {
+          ...formData,
+          tags: formData.tags.split(",").map((t) => t.trim()),
+        });
+      } else {
+        // Create
+        await axios.post("/api/jobs", {
+          ...formData,
+          tags: formData.tags.split(",").map((t) => t.trim()),
+        });
+      }
+      fetchJobs();
+      resetForm();
+    } catch (error) {
+      console.error(error);
     }
   };
 
-  return (
-    <div className="container mt-5">
-      <div className="card shadow-lg p-4 border-0 rounded-4">
-        <h2 className="mb-4 text-center fw-bold text-primary">🚀 Post a Job</h2>
-        <form onSubmit={handleSubmit}>
+  // Edit job (prefill form)
+  const handleEdit = (job) => {
+    setEditingJob(job);
+    setFormData({
+      ...job,
+      tags: job.tags?.join(", ") || "",
+      lastDate: job.lastDate ? job.lastDate.split("T")[0] : "",
+    });
+  };
 
-          {/* Job Title */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Job Title</label>
+  // Delete job
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this job?")) {
+      try {
+        await axios.delete(`/api/jobs/${id}`);
+        fetchJobs();
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      company: "",
+      img: "",
+      description: "",
+      location: "",
+      isWFH: false,
+      tags: "",
+      applyUrl: "",
+      type: "job",
+      role: "",
+      qualification: "",
+      batch: "",
+      experience: "",
+      salary: "",
+      lastDate: "",
+    });
+    setEditingJob(null);
+  };
+
+  return (
+    <div className="container my-5">
+      <h2 className="mb-4">{editingJob ? "✏️ Edit Job" : "➕ Add Job"}</h2>
+
+      {/* Job Form */}
+      <form onSubmit={handleSubmit} className="mb-5">
+        <div className="row g-3">
+          <div className="col-md-6">
+            <label className="form-label">Job Title</label>
             <input
               type="text"
               name="title"
               className="form-control"
-              placeholder="Frontend Developer"
               value={formData.title}
               onChange={handleChange}
               required
             />
           </div>
-
-          {/* Job Role */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Job Role</label>
-            <input
-              type="text"
-              name="role"
-              className="form-control"
-              placeholder="Systems Engineer Trainee"
-              value={formData.role}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          {/* Qualification */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Qualification</label>
-            <input
-              type="text"
-              name="qualification"
-              className="form-control"
-              placeholder="B.E/B.Tech/M.E/M.Tech/M.Sc/MCA"
-              value={formData.qualification}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          {/* Batch */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Batch</label>
-            <input
-              type="text"
-              name="batch"
-              className="form-control"
-              placeholder="2024 & 2025"
-              value={formData.batch}
-              onChange={handleChange}
-            />
-          </div>
-
-          {/* Experience */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Experience</label>
-            <input
-              type="text"
-              name="experience"
-              className="form-control"
-              placeholder="Freshers / 1-2 years"
-              value={formData.experience}
-              onChange={handleChange}
-            />
-          </div>
-
-          {/* Salary */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Salary / CTC</label>
-            <input
-              type="text"
-              name="salary"
-              className="form-control"
-              placeholder="Rs. 3.6 LPA"
-              value={formData.salary}
-              onChange={handleChange}
-            />
-          </div>
-
-          {/* Last Date */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Last Date</label>
-            <input
-              type="date"
-              name="lastDate"
-              className="form-control"
-              value={formData.lastDate}
-              onChange={handleChange}
-            />
-          </div>
-
-          {/* Company */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Company</label>
+          <div className="col-md-6">
+            <label className="form-label">Company</label>
             <input
               type="text"
               name="company"
               className="form-control"
-              placeholder="Google"
               value={formData.company}
               onChange={handleChange}
               required
             />
           </div>
 
-          {/* Description */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Job Description</label>
-            <div className="border rounded p-2">
-              <CKEditor
-                editor={ClassicEditor}
-                data={formData.description}
-                onChange={(event, editor) => {
-                  const data = editor.getData();
-                  setFormData({ ...formData, description: data });
-                }}
+          <div className="col-md-6">
+            <label className="form-label">Company Logo URL</label>
+            <input
+              type="url"
+              name="img"
+              className="form-control"
+              value={formData.img}
+              onChange={handleChange}
+            />
+            {formData.img && (
+              <img
+                src={formData.img}
+                alt="logo"
+                style={{ height: "40px", marginTop: "5px" }}
               />
-            </div>
+            )}
           </div>
 
-          {/* Location */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Location</label>
+          <div className="col-md-6">
+            <label className="form-label">Location</label>
             <input
               type="text"
               name="location"
               className="form-control"
-              placeholder="Bangalore, India"
               value={formData.location}
               onChange={handleChange}
-              required
             />
           </div>
 
-          {/* Remote */}
-          <div className="form-check mb-3">
-            <input
-              type="checkbox"
-              name="isWFH"
-              className="form-check-input"
-              id="remoteCheck"
-              checked={formData.isWFH}
-              onChange={handleChange}
+          <div className="col-md-12">
+            <label className="form-label">Description</label>
+            <CKEditor
+              editor={ClassicEditor}
+              data={formData.description}
+              onChange={(event, editor) => {
+                const data = editor.getData();
+                setFormData({ ...formData, description: data });
+              }}
             />
-            <label className="form-check-label" htmlFor="remoteCheck">
-              Remote (Work From Home)
-            </label>
           </div>
 
-          {/* Tags */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Tags</label>
+          <div className="col-md-6">
+            <label className="form-label">Tags (comma separated)</label>
             <input
               type="text"
               name="tags"
               className="form-control"
-              placeholder="React, Node.js, MongoDB"
               value={formData.tags}
               onChange={handleChange}
             />
-            <small className="text-muted">Enter tags separated by commas</small>
           </div>
-
-          {/* Apply URL */}
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Apply URL</label>
+          <div className="col-md-6">
+            <label className="form-label">Apply URL</label>
             <input
               type="url"
               name="applyUrl"
               className="form-control"
-              placeholder="https://apply.here"
               value={formData.applyUrl}
               onChange={handleChange}
-              required
             />
           </div>
 
-          {/* Job Type */}
-          <div className="mb-4">
-            <label className="form-label fw-semibold">Job Type</label>
+          <div className="col-md-4">
+            <label className="form-label">Type</label>
             <select
               name="type"
               className="form-select"
@@ -263,18 +219,151 @@ export default function JobForm() {
               <option value="internship">Internship</option>
             </select>
           </div>
-
-          {/* Submit */}
-          <div className="text-center">
-            <button
-              type="submit"
-              className="btn btn-primary px-5 py-2 rounded-3"
-            >
-              ✅ Post Job
-            </button>
+          <div className="col-md-4">
+            <label className="form-label">Experience</label>
+            <input
+              type="text"
+              name="experience"
+              className="form-control"
+              value={formData.experience}
+              onChange={handleChange}
+            />
           </div>
-        </form>
-      </div>
+          <div className="col-md-4">
+            <label className="form-label">Salary</label>
+            <input
+              type="text"
+              name="salary"
+              className="form-control"
+              value={formData.salary}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="col-md-6">
+            <label className="form-label">Qualification</label>
+            <input
+              type="text"
+              name="qualification"
+              className="form-control"
+              value={formData.qualification}
+              onChange={handleChange}
+            />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Batch</label>
+            <input
+              type="text"
+              name="batch"
+              className="form-control"
+              value={formData.batch}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="col-md-6">
+            <label className="form-label">Last Date</label>
+            <input
+              type="date"
+              name="lastDate"
+              className="form-control"
+              value={formData.lastDate}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="col-md-6 d-flex align-items-center">
+            <div className="form-check mt-4">
+              <input
+                type="checkbox"
+                name="isWFH"
+                className="form-check-input"
+                checked={formData.isWFH}
+                onChange={handleChange}
+              />
+              <label className="form-check-label">Work From Home</label>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <button type="submit" className="btn btn-primary me-2">
+            {editingJob ? "Update Job" : "Add Job"}
+          </button>
+          {editingJob && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={resetForm}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+
+      {/* Job List */}
+      <h3>📋 Job List</h3>
+      <table className="table table-bordered mt-3">
+        <thead className="table-light">
+          <tr>
+            <th>Logo</th>
+            <th>Title</th>
+            <th>Company</th>
+            <th>Location</th>
+            <th>Type</th>
+            <th>Salary</th>
+            <th>Last Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {jobs.map((job) => (
+            <tr key={job._id}>
+              <td>
+                {job.img && (
+                  <img
+                    src={job.img}
+                    alt="logo"
+                    style={{ height: "30px", borderRadius: "4px" }}
+                  />
+                )}
+              </td>
+              <td>{job.title}</td>
+              <td>{job.company}</td>
+              <td>{job.location}</td>
+              <td>{job.type}</td>
+              <td>{job.salary}</td>
+              <td>
+                {job.lastDate
+                  ? new Date(job.lastDate).toLocaleDateString()
+                  : "—"}
+              </td>
+              <td>
+                <button
+                  className="btn btn-sm btn-warning me-2"
+                  onClick={() => handleEdit(job)}
+                >
+                  ✏️ Edit
+                </button>
+                <button
+                  className="btn btn-sm btn-danger"
+                  onClick={() => handleDelete(job._id)}
+                >
+                  🗑️ Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+          {jobs.length === 0 && (
+            <tr>
+              <td colSpan="8" className="text-center">
+                No jobs found
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
